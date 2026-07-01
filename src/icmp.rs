@@ -1,7 +1,14 @@
 use std::fmt::Display;
 
+#[repr(u8)]
+#[derive(Clone, Copy)]
+enum IcmpType {
+    EchoReply = 0x0,
+    EchoRequest = 0x8,
+}
+
 pub struct Icmp {
-    r#type: u8,
+    icmp_type: IcmpType,
     code: u8,
     checksum: u16,
     identifier: u16,
@@ -15,7 +22,12 @@ impl Display for Icmp {
         write!(
             f,
             "Type: {:#02x}\nCode: {:#02x}\nChecksum: {:#02x}\nIdentifier: {:#02x}\nSequence Number: {:#02x}\nPayload: {:02x?}\n",
-            self.r#type, self.code, self.checksum, self.identifier, self.seq_num, self.payload
+            self.icmp_type as u8,
+            self.code,
+            self.checksum,
+            self.identifier,
+            self.seq_num,
+            self.payload
         )
     }
 }
@@ -33,7 +45,7 @@ impl Icmp {
     }
 
     fn calculate_checksum(&mut self) {
-        let mut checksum: u16 = ((self.r#type as u16) << 8) + (self.code as u16);
+        let mut checksum: u16 = ((self.icmp_type as u16) << 8) + (self.code as u16);
 
         // Checksum field is zero during calculation
         checksum = Self::ones_complement_sum(checksum, self.identifier);
@@ -64,7 +76,7 @@ impl Icmp {
         ];
 
         Icmp {
-            r#type: 0x08,
+            icmp_type: IcmpType::EchoRequest,
             code: 0x00,
             checksum: 0x00,
             identifier: std::process::id() as u16,
@@ -82,7 +94,7 @@ impl Icmp {
         let seq_num = self.seq_num.to_be_bytes();
 
         let mut icmp_packet = vec![
-            self.r#type,
+            self.icmp_type as u8,
             self.code,
             checksum[0],
             checksum[1],
