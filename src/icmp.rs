@@ -2,9 +2,10 @@ use std::fmt::Display;
 
 #[repr(u8)]
 #[derive(Clone, Copy)]
-enum IcmpType {
-    EchoReply = 0x0,
+#[allow(dead_code)]
+pub enum IcmpType {
     EchoRequest = 0x8,
+    EchoReply = 0x0,
 }
 
 pub struct Icmp {
@@ -32,11 +33,29 @@ impl Display for Icmp {
     }
 }
 
-impl Icmp {
-    fn increment_seq_num(&mut self) {
-        self.seq_num += 1;
-    }
+impl Default for Icmp {
+    fn default() -> Self {
+        // Hardcoded payload for now (stolen from unix ping payload)
+        let payload = vec![
+            0xc, 0x51, 0x41, 0x6a, 0x0, 0x0, 0x0, 0x0, 0x16, 0x81, 0x6, 0x0, 0x0, 0x0, 0x0, 0x0,
+            0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d,
+            0x1e, 0x1f, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b,
+            0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+        ];
 
+        Icmp {
+            icmp_type: IcmpType::EchoRequest,
+            code: 0x0,
+            checksum: 0x0,
+            identifier: std::process::id() as u16,
+            seq_num: 0,
+
+            payload,
+        }
+    }
+}
+
+impl Icmp {
     fn ones_complement_sum(x: u16, y: u16) -> u16 {
         let sum = x as u32 + y as u32;
         let carry = (sum >> 16) as u16;
@@ -44,7 +63,7 @@ impl Icmp {
         (sum as u16).wrapping_add(carry)
     }
 
-    fn calculate_checksum(&mut self) {
+    fn calculate_checksum(&self) -> u16 {
         let mut checksum: u16 = ((self.icmp_type as u16) << 8) + (self.code as u16);
 
         // Checksum field is zero during calculation
@@ -63,33 +82,34 @@ impl Icmp {
             checksum = Self::ones_complement_sum(checksum, double);
         }
 
-        self.checksum = !checksum;
+        checksum
     }
 
-    pub fn new() -> Self {
-        // Hardcoded payload for now (stolen from unix ping payload)
-        let payload = vec![
-            0xc, 0x51, 0x41, 0x6a, 0x0, 0x0, 0x0, 0x0, 0x16, 0x81, 0x6, 0x0, 0x0, 0x0, 0x0, 0x0,
-            0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d,
-            0x1e, 0x1f, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b,
-            0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
-        ];
-
+    #[allow(dead_code)]
+    pub fn new(
+        icmp_type: IcmpType,
+        code: u8,
+        identifier: u16,
+        seq_num: u16,
+        payload: Vec<u8>,
+    ) -> Self {
         Icmp {
-            icmp_type: IcmpType::EchoRequest,
-            code: 0x00,
-            checksum: 0x00,
-            identifier: std::process::id() as u16,
-            seq_num: 0x00,
+            icmp_type,
+            code,
+            checksum: 0x0,
+            identifier,
+            seq_num,
             payload,
         }
     }
 
-    pub fn serialize(&mut self) -> Vec<u8> {
-        self.increment_seq_num();
-        self.calculate_checksum();
+    pub fn increment_seq_num(&mut self) {
+        self.seq_num += 1;
+    }
 
-        let checksum = self.checksum.to_be_bytes();
+    pub fn serialize(&self) -> Vec<u8> {
+        let checksum = self.calculate_checksum().to_be_bytes();
+
         let identifier = self.identifier.to_be_bytes();
         let seq_num = self.seq_num.to_be_bytes();
 

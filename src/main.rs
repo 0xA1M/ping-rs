@@ -24,18 +24,21 @@ fn main() {
         .set_read_timeout(Some(Duration::from_secs(1)))
         .expect("Failed to configure socket");
 
-    let ip: IpAddr = args.iter().nth(1).unwrap().parse().unwrap();
+    let ip: IpAddr = args.get(1).unwrap().parse().unwrap();
     let address = SocketAddr::new(ip, 0);
 
     socket.connect(&address.into()).unwrap();
 
-    let mut icmp = Icmp::new();
+    let mut icmp = Icmp::default();
     let mut buffer = [MaybeUninit::<u8>::uninit(); 1024];
 
     for _ in 1..5 {
-        let icmp_packet = &icmp.serialize();
-        println!("ICMP Packet: {}", icmp);
-        socket.send(&icmp_packet).expect("Failed to send message");
+        // Increament icmp request packet's sequence number
+        icmp.increment_seq_num();
+
+        socket
+            .send(&icmp.serialize())
+            .expect("Failed to send message");
 
         socket.recv(&mut buffer).unwrap();
     }
