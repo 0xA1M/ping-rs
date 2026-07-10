@@ -32,5 +32,5 @@ pub(crate) fn calculate_checksum(data: &[u8]) -> u16 {
         checksum = ones_complement_sum(checksum, word);
     }
 
-    checksum
+    !checksum
 }
